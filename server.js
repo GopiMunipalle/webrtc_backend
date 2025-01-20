@@ -2,12 +2,22 @@ const express = require("express");
 const http = require("http");
 const app = express();
 const server = http.createServer(app);
+const dotenv = require("dotenv");
+dotenv.config();
+const cors = require("cors");
 const io = require("socket.io")(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: [process.env.HOST, "http://localhost:3000"],
     methods: ["GET", "POST"],
   },
 });
+app.use(
+  cors({
+    origin: [process.env.HOST, "http://localhost:3000"],
+    methods: ["GET", "POST"],
+    credentials: true,
+  })
+);
 
 const users = new Map();
 
@@ -22,9 +32,9 @@ io.on("connection", (socket) => {
     );
   });
 
-  socket.on("callUser", ({ offer, from }) => {
+  socket.on("callUser", ({ offer, from,to }) => {
     console.log(`Call from ${from} with offer,${offer}`);
-    socket.broadcast.emit("incomingCall", { from, offer });
+    io.to(to).emit("incomingCall", { from, offer });
   });
 
   // Handle call acceptance
@@ -38,6 +48,11 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("iceCandidate", { candidate });
   });
 
+  socket.on("endCall", ({ to }) => {
+    console.log(`Call ended by ${socket.id}`);
+    io.to(to).emit("callEnded"); 
+  });
+
   // Handle user disconnection
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
@@ -49,4 +64,4 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(5000, () => console.log("server is running on port 5000"));
+server.listen(5000,"192.168.0.105", () => console.log("server is running on port 5000"));
